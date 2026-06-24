@@ -107,6 +107,40 @@
   .hint{font-size:11.5px;color:#8a8164;line-height:1.7;background:var(--paper2);
     border-radius:12px;padding:12px 14px;margin-top:4px}
   .hint code{background:#fff;padding:1px 5px;border-radius:4px;font-size:11px}
+  /* ---- CSV import ---- */
+  .imp-sum{display:flex;gap:8px;flex-wrap:wrap;background:var(--paper2);border-radius:11px;
+    padding:11px 13px;margin:12px 0;font-size:12.5px;color:#4a4636}
+  .imp-sum div{flex:1;min-width:84px}
+  .imp-sum b{font-variant-numeric:tabular-nums;font-size:16px;display:block;margin-top:2px}
+  .imp-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px;table-layout:fixed}
+  .imp-tbl th{text-align:left;color:#8a8164;font-size:10px;letter-spacing:.04em;
+    padding:4px 6px;border-bottom:1.5px solid var(--line);font-weight:700}
+  .imp-tbl td{padding:6px;border-bottom:1px solid #ece6d6;color:#3a3628;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .imp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .imp-more{font-size:11.5px;color:#8a8164;text-align:center;margin:4px 0 12px}
+  .imp-warn{font-size:12.5px;color:var(--clay);background:#fbeeea;
+    border-radius:10px;padding:11px 13px;line-height:1.6}
+  .imp-done{font-size:13px;color:var(--moss-d);background:#e3f0e6;
+    border-radius:10px;padding:12px 13px;font-weight:700;text-align:center}
+  /* ---- privacy memo ---- */
+  .pv-group{margin:18px 2px 9px;display:flex;align-items:center;gap:9px}
+  .pv-badge{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#fff;
+    padding:4px 12px;border-radius:999px}
+  .pv-count{font-size:11px;color:#8a8164;font-weight:700;font-variant-numeric:tabular-nums}
+  .pv-item{display:flex;gap:11px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px 13px;margin-bottom:7px;cursor:pointer;
+    box-shadow:var(--shadow);transition:.15s}
+  .pv-item:active{transform:scale(.99)}
+  .pv-item.on{background:#f1f6f0;border-color:var(--leaf)}
+  .pv-box{flex:none;width:22px;height:22px;border-radius:7px;border:1.5px solid var(--line);
+    background:var(--paper);display:flex;align-items:center;justify-content:center;
+    font-size:14px;color:#fff;font-weight:800;margin-top:1px}
+  .pv-item.on .pv-box{background:var(--moss);border-color:var(--moss)}
+  .pv-meta{flex:1;min-width:0}
+  .pv-t{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .pv-item.on .pv-t{color:#8a8164;text-decoration:line-through}
+  .pv-d{font-size:11.5px;color:#8a8164;margin-top:3px;line-height:1.55}
   /* ---- tabbar ---- */
   nav{position:fixed;left:0;right:0;bottom:0;z-index:30;
     background:rgba(243,239,228,.92);backdrop-filter:blur(12px);
@@ -217,6 +251,17 @@
         形式：<code>日付,項目,商品,費用</code>
       </div>
     </div>
+    <h2 class="sec">CSVを取り込む</h2>
+    <div class="card">
+      <button class="exp-btn solid" id="csvImportBtn">📥 CSVファイルを選ぶ</button>
+      <input type="file" id="csvImportFile" accept=".csv,text/csv" style="display:none" />
+      <div id="importPreview"></div>
+      <div class="hint">
+        Claude Codeで作ったレシートCSV（<code>日付,項目,商品,費用</code>）を取り込みます。<br>
+        日付は <code>2026-06-24</code> でも <code>2026/6/24</code> でも可。
+        すでに同じ記録があれば自動でスキップします。
+      </div>
+    </div>
     <h2 class="sec">バックアップ</h2>
     <div class="card">
       <button class="exp-btn" id="backup">💾 バックアップを保存(JSON)</button>
@@ -225,6 +270,17 @@
       <div class="hint">データはこの端末のブラウザ内に保存されます。機種変更前にバックアップを。</div>
     </div>
   </section>
+
+  <!-- ===== PRIVACY ===== -->
+  <section class="view" id="v-privacy">
+    <h2 class="sec">レシートの個人情報チェック</h2>
+    <div class="hint" style="margin-bottom:6px">
+      Claudeやアプリにレシート画像を渡す前の確認メモです。
+      タップで消し込みでき、状態はこの端末に保存されます。
+    </div>
+    <div id="privacyList"></div>
+    <button class="exp-btn" id="privacyReset" style="margin-top:6px">チェックをリセット</button>
+  </section>
 </main>
 
 <nav>
@@ -232,6 +288,7 @@
   <button data-v="list"><span class="ic">☰</span>履歴</button>
   <button data-v="chart"><span class="ic">📊</span>グラフ</button>
   <button data-v="export"><span class="ic">⇄</span>連携</button>
+  <button data-v="privacy"><span class="ic">🔒</span>保護</button>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -262,6 +319,7 @@ $$("nav button").forEach(b=>b.onclick=()=>{
   $("#v-"+b.dataset.v).classList.add("active");
   if(b.dataset.v==="chart")drawCharts();
   if(b.dataset.v==="list")renderList();
+  if(b.dataset.v==="privacy")buildPrivacy();
 });
 
 /* ---- mode toggle (支出/収入) ---- */
@@ -440,8 +498,158 @@ $("#backup").onclick=()=>{triggerDL(new Blob([JSON.stringify(state)],{type:"appl
 $("#restoreBtn").onclick=()=>$("#restoreFile").click();
 $("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{state=JSON.parse(rd.result);save();initAll();toast("復元しました ✓");}catch{toast("ファイルを読めませんでした");}};rd.readAsText(f);};
 
+/* ---- CSV import ---- */
+let pendingImport=[];
+function parseCSVLine(line){
+  const out=[];let cur="",inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inQ){
+      if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=ch;
+    }else{
+      if(ch==='"')inQ=true;
+      else if(ch===","){out.push(cur);cur="";}
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function normDate(d){
+  d=(d||"").trim().replace(/\//g,"-");
+  const m=d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}` : null;
+}
+function mapCols(header){
+  const f=names=>header.findIndex(h=>names.includes(h.trim().toLowerCase())||names.includes(h.trim()));
+  return {
+    date:f(["日付","date"]),
+    cat :f(["項目","カテゴリ","category"]),
+    prod:f(["商品","店名","商品・店名","メモ","product"]),
+    cost:f(["費用","金額","cost","amount"]),
+    type:f(["種別","type"])
+  };
+}
+function parseCSV(text){
+  text=text.replace(/^\uFEFF/,"");
+  const lines=text.split(/\r\n|\n|\r/).filter(l=>l.trim()!=="");
+  if(!lines.length)return [];
+  const rows=lines.map(parseCSVLine);
+  const head=rows[0].map(h=>h.trim());
+  const hasHeader=head.some(h=>["日付","date","項目","category","費用","金額"].includes(h));
+  let map,data;
+  if(hasHeader){map=mapCols(head);data=rows.slice(1);}
+  else{map={date:0,cat:1,prod:2,cost:3,type:-1};data=rows;}
+  return data.map(c=>{
+    const date=normDate(c[map.date]);
+    const cat=(map.cat>=0?c[map.cat]:"").trim();
+    const prod=(map.prod>=0?c[map.prod]:"").trim();
+    const cost=parseFloat(((map.cost>=0?c[map.cost]:"")+"").replace(/[^\d.\-]/g,""));
+    let type="expense";
+    if(map.type>=0 && /収入|income/i.test((c[map.type]||"")))type="income";
+    return {date,cat,prod,cost,type};
+  }).filter(r=>r.date && !isNaN(r.cost) && r.cost>0);
+}
+function isDup(r){
+  return state.rows.some(x=>x.date===r.date && x.type===r.type &&
+    x.cat===r.cat && x.prod===r.prod && Math.round(x.cost)===Math.round(r.cost));
+}
+$("#csvImportBtn").onclick=()=>$("#csvImportFile").click();
+$("#csvImportFile").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let parsed;
+    try{parsed=parseCSV(rd.result);}
+    catch{ $("#importPreview").innerHTML='<div class="imp-warn">CSVを読み取れませんでした。形式をご確認ください。</div>'; return; }
+    if(!parsed.length){ $("#importPreview").innerHTML='<div class="imp-warn">取り込める行がありませんでした。<br>「日付 / 項目 / 商品 / 費用」の並びかご確認ください。</div>'; return; }
+    const dups=parsed.filter(isDup);
+    const fresh=parsed.filter(r=>!isDup(r));
+    pendingImport=fresh;
+    renderImportPreview(parsed.length,fresh,dups.length);
+  };
+  rd.readAsText(f);
+  e.target.value="";
+};
+function renderImportPreview(total,fresh,dupCount){
+  const sample=fresh.slice(0,5).map(r=>
+    `<tr><td>${r.date.slice(5)}</td><td>${esc(r.cat||"その他")}</td><td>${esc(r.prod||"-")}</td><td class="num">${yen(r.cost)}</td></tr>`
+  ).join("");
+  $("#importPreview").innerHTML=`
+    <div class="imp-sum">
+      <div>読み取り<b>${total}</b></div>
+      <div>新規追加<b style="color:var(--moss-d)">${fresh.length}</b></div>
+      <div>重複スキップ<b>${dupCount}</b></div>
+    </div>`+
+    (fresh.length
+      ? `<table class="imp-tbl"><thead><tr><th>日付</th><th>項目</th><th>商品</th><th style="text-align:right">費用</th></tr></thead><tbody>${sample}</tbody></table>`+
+        (fresh.length>5?`<div class="imp-more">…ほか ${fresh.length-5} 件</div>`:"")+
+        `<button class="save" id="importConfirm">${fresh.length}件を取り込む</button>`
+      : `<div class="imp-warn">新しく追加できるデータはありません（すべて登録済み）。</div>`);
+  const btn=$("#importConfirm");
+  if(btn)btn.onclick=doImport;
+}
+function doImport(){
+  if(!pendingImport.length)return;
+  pendingImport.forEach(r=>state.rows.push({
+    date:r.date,type:r.type,cat:r.cat||"その他",prod:r.prod||r.cat||"その他",cost:r.cost
+  }));
+  save();
+  const n=pendingImport.length;pendingImport=[];
+  $("#importPreview").innerHTML=`<div class="imp-done">✓ ${n}件を取り込みました</div>`;
+  buildProdList();buildMonthPick();refreshHeader();
+  toast(`${n}件を取り込みました ✓`);
+}
+
+/* ---- privacy memo ---- */
+const PRIVACY=[
+  {level:"必須でマスク",color:"#c5563f",items:[
+    {t:"クレジットカード番号",d:"下4桁以外は隠す。****-****-****-1234 のように"},
+    {t:"有効期限・セキュリティコード",d:"画像から完全に削除する"},
+    {t:"電話番号",d:"営業・詐欺電話の標的になりやすい。塗りつぶす"},
+    {t:"メールアドレス",d:"スパムやなりすまし防止のため削除"},
+    {t:"自宅・配送先の住所",d:"宅配伝票つきのレシートは特に注意"},
+    {t:"会員番号・ポイントカード番号",d:"不正利用を防ぐためマスクする"},
+  ]},
+  {level:"できれば隠す",color:"#d9a441",items:[
+    {t:"QRコード・バーコード",d:"決済情報を含む場合あり。隠すか撮らない"},
+    {t:"レシート番号・取引番号",d:"店舗側で購入を追跡される可能性がある"},
+    {t:"店員名・担当者名",d:"個人が特定されうる場合は消す"},
+    {t:"購入時刻（秒単位）",d:"行動パターン推定を避けるなら日付だけに"},
+  ]},
+  {level:"残してOK",color:"#2f6a4f",items:[
+    {t:"店舗名・支店名",d:"金券屋の比較・分析に必要なので残す"},
+    {t:"商品名・カテゴリ",d:"家計簿の項目分けに必要"},
+    {t:"金額・割引率",d:"記録の本体。残す"},
+  ]},
+];
+const PKEY="kakeibo_privacy_v1";
+let pchecks=JSON.parse(localStorage.getItem(PKEY)||"{}");
+function buildPrivacy(){
+  const w=$("#privacyList");w.innerHTML="";
+  PRIVACY.forEach(g=>{
+    const done=g.items.filter(it=>pchecks[it.t]).length;
+    const head=document.createElement("div");
+    head.className="pv-group";
+    head.innerHTML=`<span class="pv-badge" style="background:${g.color}">${g.level}</span><span class="pv-count">${done}/${g.items.length}</span>`;
+    w.appendChild(head);
+    g.items.forEach(it=>{
+      const on=!!pchecks[it.t];
+      const row=document.createElement("div");
+      row.className="pv-item"+(on?" on":"");
+      row.innerHTML=`<span class="pv-box">${on?"✓":""}</span><div class="pv-meta"><div class="pv-t">${esc(it.t)}</div><div class="pv-d">${esc(it.d)}</div></div>`;
+      row.onclick=()=>{pchecks[it.t]=!pchecks[it.t];localStorage.setItem(PKEY,JSON.stringify(pchecks));buildPrivacy();};
+      w.appendChild(row);
+    });
+  });
+}
+$("#privacyReset").onclick=()=>{
+  if(confirm("チェックをすべてリセットしますか？")){pchecks={};localStorage.setItem(PKEY,JSON.stringify(pchecks));buildPrivacy();}
+};
+
 /* ---- init ---- */
-function initAll(){buildChips();buildProdList();buildMonthPick();$("#f-date").value=todayISO();refreshHeader();renderList();}
+function initAll(){buildChips();buildProdList();buildMonthPick();$("#f-date").value=todayISO();refreshHeader();renderList();buildPrivacy();}
 initAll();
 </script>
 </body>
